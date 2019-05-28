@@ -1,0 +1,11 @@
+if MACH_LITEX
+
+choice
+	prompt "Board type"
+
+config BOARD_LITEX_GENERIC
+	bool "litex generic board"
+
+endchoice
+
+endif
