@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+#include "litex_soc_linux.dtsi"
+
+/ {
+	model = "LiteX VexRiscV-SoC-Linux";
+	compatible = "litex,vexriscv-soc-linux";
+
+	aliases {
+		rom = &rom;
+		sram = &sram;
+	};
+
+	/* ARTY board */
+	rom: rom@00000000 {
+		compatible = "mmio-sram";
+		reg = <0x00000000 0x00008000>;
+		read-only;
+	};
+
+	sram: sram@10000000 {
+		compatible = "mmio-sram";
+		reg = <0x20000000 0x00004000>;
+	};
+
+	main_ram: memory@40000000 {
+		device_type = "memory";
+		reg = <0x40000000 0x10000000>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&mac0 {
+	status = "okay";
+};
