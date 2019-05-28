@@ -24,6 +24,11 @@ config MACH_ERIZO
 	select HAS_DEBUG_LL
 	select HAS_NMON
 
+config MACH_LITEX
+	bool "litex family"
+	select HAS_DEBUG_LL
+	select HAS_NMON
+
 endchoice
 
 choice
@@ -63,6 +68,7 @@ config BUILTIN_DTB_NAME
 	depends on BUILTIN_DTB
 
 source "arch/riscv/mach-erizo/Kconfig"
+source "arch/riscv/mach-litex/Kconfig"
 
 endmenu
 

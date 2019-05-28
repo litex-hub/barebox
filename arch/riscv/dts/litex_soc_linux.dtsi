@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/dts-v1/;
+
+/ {
+	compatible = "litex,vexriscv-soc-linux", "litex-dev";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	clocks {
+		ref_clk: ref_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "spinalhdl,vexriscv", "riscv";
+			reg = <0>;
+		};
+	};
+
+	uart0: serial@f0001800 {
+		compatible = "litex,uart";
+		reg = <0xf0001000 0x18>;
+		status = "disabled";
+	};
+
+	timer0: timer@f0001800 {
+		compatible = "litex,timer0";
+		reg = <0xf0001800 0x40>;
+		clocks = <&ref_clk>;
+		status = "disabled";
+	};
+
+	mac0: mac@f0003800 {
+		compatible = "litex,liteeth";
+		reg = <0xf0004000 0x7c /* base */
+			0xf0003800 0x0a /* mdio_base */
+			0xb0000000 0x2000>; /* buf_base */
+		tx-fifo-depth = <2>;
+		rx-fifo-depth = <2>;
+		status = "disabled";
+	};
+
+	spi0: spi@f0004800 {
+		compatible = "litex,spiflash";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg = <0xf0004800 0x100>;
+		status = "disabled";
+	};
+};

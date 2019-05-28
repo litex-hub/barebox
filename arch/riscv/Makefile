@@ -13,6 +13,7 @@ cflags-y += -Wall -Wstrict-prototypes \
 LDFLAGS_barebox += -nostdlib
 
 machine-$(CONFIG_MACH_ERIZO)	:= erizo
+machine-$(CONFIG_MACH_LITEX)	:= litex
 
 TEXT_BASE = $(CONFIG_TEXT_BASE)
 KBUILD_CPPFLAGS += -DTEXT_BASE=$(CONFIG_TEXT_BASE)
