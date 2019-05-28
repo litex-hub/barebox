@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+/dts-v1/;
+
+/ {
+	compatible = "litex,vexriscv-soc-linux", "litex-dev";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	clocks {
+		ref_clk: ref_clk {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "spinalhdl,vexriscv", "riscv";
+			clocks = <&ref_clk>;
+			reg = <0>;
+		};
+	};
+
+	uart0: serial@f0001800 {
+		compatible = "litex,uart";
+		reg = <0xf0001800 0x18>;
+		status = "disabled";
+	};
+
+	mac0: mac@f0003800 {
+		compatible = "litex,liteeth";
+		reg = <0xf0003800 0x7c
+			0xf0003000 0x0a
+			0xb0000000 0x2000>;
+		tx-fifo-depth = <2>;
+		rx-fifo-depth = <2>;
+		status = "disabled";
+	};
+};
