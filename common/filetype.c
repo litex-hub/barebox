@@ -81,6 +81,7 @@ static const struct filetype_str filetype_str[] = {
 				"ubootvar" },
 	[filetype_stm32_image_v1] = { "STM32 image (v1)", "stm32-image-v1" },
 	[filetype_zynq_image] = { "Zynq image", "zynq-image" },
+	[filetype_riscv_linux_image] = { "RISC-V Linux Image", "riscv-image" },
 };
 
 const char *file_type_to_string(enum filetype f)
@@ -395,6 +396,8 @@ enum filetype file_detect_type(const void *_buf, size_t bufsize)
 
 	if (buf[8] == 0xAA995566 && buf[9] == 0x584C4E58)
 		return filetype_zynq_image;
+
+	return filetype_riscv_linux_image;
 
 	return filetype_unknown;
 }
