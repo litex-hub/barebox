@@ -51,6 +51,7 @@ enum filetype {
 	filetype_ubootvar,
 	filetype_stm32_image_v1,
 	filetype_zynq_image,
+	filetype_riscv_linux_image,
 	filetype_max,
 };
 
