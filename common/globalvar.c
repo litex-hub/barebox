@@ -591,6 +591,8 @@ int globalvar_add_simple_ip(const char *name, IPaddr_t *ip)
 
 static int globalvar_init(void)
 {
+	const char *endianness;
+
 	register_device(&global_device);
 
 	if (IS_ENABLED(CONFIG_NVVAR))
@@ -598,11 +600,19 @@ static int globalvar_init(void)
 
 	globalvar_add_simple("version", UTS_RELEASE);
 
+	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
+		endianness = "big";
+	else
+		endianness = "little";
+
+	globalvar_add_simple("endianness", endianness);
+
 	return 0;
 }
 pure_initcall(globalvar_init);
 
 BAREBOX_MAGICVAR_NAMED(global_version, global.version, "The barebox version");
+BAREBOX_MAGICVAR_NAMED(global_endianness, global.endianness, "The barebox endianness");
 
 /**
  * nvvar_save - save NV variables to persistent environment
