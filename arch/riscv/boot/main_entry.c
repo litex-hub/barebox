@@ -18,6 +18,8 @@
 
 void main_entry(void);
 
+#include <debug_ll.h>
+
 /**
  * Called plainly from assembler code
  *
@@ -25,11 +27,15 @@ void main_entry(void);
  */
 void main_entry(void)
 {
+	puts_ll("main_entry()\n");
+
 	/* clear the BSS first */
 	memset(__bss_start, 0x00, __bss_stop - __bss_start);
 
+	puts_ll("main_entry1()\n");
 	mem_malloc_init((void *)MALLOC_BASE,
 			(void *)(MALLOC_BASE + MALLOC_SIZE - 1));
 
+	puts_ll("main_entry2()\n");
 	start_barebox();
 }
