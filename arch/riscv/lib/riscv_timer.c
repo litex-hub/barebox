@@ -39,6 +39,8 @@ static int rdcycle_cs_init(void)
 {
 	unsigned int cycle_frequency;
 
+	return 0;
+
 	/* default rate: 100 MHz */
 	cycle_frequency = 100000000;
 
