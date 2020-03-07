@@ -28,8 +28,6 @@
 
 .globl _start
 _start:
-	debug_ll_ns16550_init
-
 	riscv_nmon
 
 	li	sp, STACK_BASE + STACK_SIZE
