@@ -3,7 +3,8 @@ KBUILD_DEFCONFIG := erizo_generic_defconfig
 KBUILD_CPPFLAGS += -fno-strict-aliasing
 
 ifeq ($(CONFIG_ARCH_RV32I),y)
-	cflags-y += -march=rv32im
+	cflags-y += -march=rv32ima -mabi=ilp32
+	riscv-ldflags-y += -melf32lriscv
 endif
 
 cflags-y += -fno-pic -pipe
@@ -14,6 +15,8 @@ LDFLAGS_barebox += -nostdlib
 
 machine-$(CONFIG_MACH_ERIZO)	:= erizo
 machine-$(CONFIG_MACH_LITEX)	:= litex
+
+LDFLAGS_barebox += $(riscv-ldflags-y)
 
 TEXT_BASE = $(CONFIG_TEXT_BASE)
 KBUILD_CPPFLAGS += -DTEXT_BASE=$(CONFIG_TEXT_BASE)
