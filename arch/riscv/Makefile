@@ -1,7 +1,8 @@
 CPPFLAGS += -fno-strict-aliasing
 
 ifeq ($(CONFIG_ARCH_RV32I),y)
-	cflags-y += -march=rv32im
+	cflags-y += -march=rv32ima -mabi=ilp32
+	ldflags-y += -melf32lriscv
 endif
 
 cflags-y += -fno-pic -pipe
