@@ -36,9 +36,9 @@
 
 	mac0: mac@f0003800 {
 		compatible = "litex,liteeth";
-		reg = <0xf0003800 0x7c
-			0xf0003000 0x0a
-			0xb0000000 0x2000>;
+		reg = <0xf0004000 0x7c /* base */
+			0xf0003800 0x0a /* mdio_base */
+			0xb0000000 0x2000>; /* buf_base */
 		tx-fifo-depth = <2>;
 		rx-fifo-depth = <2>;
 		status = "disabled";
