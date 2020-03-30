@@ -38,6 +38,8 @@ static int sram_probe(struct device_d *dev)
 	struct resource *res;
 	void __iomem *base;
 	int ret;
+	const char *alias;
+	char *devname;
 
 	iores = dev_request_mem_resource(dev, 0);
 	if (IS_ERR(iores))
@@ -46,7 +48,21 @@ static int sram_probe(struct device_d *dev)
 
 	sram = xzalloc(sizeof(*sram));
 
-	sram->cdev.name = basprintf("sram%d", cdev_find_free_index("sram"));
+	alias = of_alias_get(dev->device_node);
+	if (alias) {
+		devname = xstrdup(alias);
+	} else {
+		int err;
+
+		err = cdev_find_free_index("sram");
+		if (err < 0) {
+			dev_err(dev, "no index found to name device\n");
+			ret = err;
+			goto err_device_name;
+		}
+		devname = xasprintf("sram%d", err);
+	}
+	sram->cdev.name = devname;
 
 	res = dev_get_resource(dev, IORESOURCE_MEM, 0);
 	if (IS_ERR(res))
@@ -57,6 +73,7 @@ static int sram_probe(struct device_d *dev)
 	sram->cdev.dev = dev;
 
 	ret = devfs_create(&sram->cdev);
+err_device_name:
 	if (ret)
 		return ret;
 
