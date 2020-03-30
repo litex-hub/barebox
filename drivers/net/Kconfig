@@ -275,6 +275,7 @@ config TSE_USE_DEDICATED_DESC_MEM
 config DRIVER_NET_LITEETH
 	bool "LiteX ethernet driver"
 	select PHYLIB
+	select MDIO_BITBANG
 	help
 	  This option enables support for the LiteX LiteEth
 	  ethernet IP core.
