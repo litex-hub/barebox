@@ -13,6 +13,8 @@
 #include <net.h>
 #include <init.h>
 #include <of_net.h>
+#include <linux/phy.h>
+#include <linux/mdio-bitbang.h>
 
 #define DRV_NAME	"liteeth"
 
@@ -36,7 +38,12 @@
 
 #define LITEETH_PHY_CRG_RESET		0x00
 #define LITEETH_MDIO_W			0x04
+#define  MDIO_W_CLK			BIT(0)
+#define  MDIO_W_OE			BIT(1)
+#define  MDIO_W_DO			BIT(2)
+
 #define LITEETH_MDIO_R			0x08
+#define  MDIO_R_DI			BIT(0)
 
 #define LITEETH_BUFFER_SIZE		0x800
 #define MAX_PKT_SIZE			LITEETH_BUFFER_SIZE
@@ -45,7 +52,8 @@ struct liteeth {
 	void __iomem *base;
 	void __iomem *mdio_base;
 	struct device_d *dev;
-	struct mii_bus mii_bus;
+	struct mii_bus *mii_bus;
+	struct mdiobb_ctrl mdiobb;
 
 	/* Link management */
 	int cur_duplex;
@@ -90,6 +98,54 @@ static inline u32 inreg32(void __iomem *addr)
 		(inreg8(addr + 0xc) <<  0);
 }
 
+static void liteeth_mdio_w_modify(struct liteeth *priv, u8 clear, u8 set)
+{
+	void __iomem *mdio_w = priv->mdio_base + LITEETH_MDIO_W;
+
+	outreg8((inreg8(mdio_w) & ~clear) | set, mdio_w);
+}
+
+static void liteeth_mdio_ctrl(struct mdiobb_ctrl *ctrl, u8 mask, int set)
+{
+	struct liteeth *priv = container_of(ctrl, struct liteeth, mdiobb);
+
+	liteeth_mdio_w_modify(priv, mask, set ? mask : 0);
+}
+
+/* MDC pin control */
+static void liteeth_set_mdc(struct mdiobb_ctrl *ctrl, int level)
+{
+	liteeth_mdio_ctrl(ctrl, MDIO_W_CLK, level);
+}
+
+/* Data I/O pin control */
+static void liteeth_set_mdio_dir(struct mdiobb_ctrl *ctrl, int output)
+{
+	liteeth_mdio_ctrl(ctrl, MDIO_W_OE, output);
+}
+
+/* Set data bit */
+static void liteeth_set_mdio_data(struct mdiobb_ctrl *ctrl, int value)
+{
+	liteeth_mdio_ctrl(ctrl, MDIO_W_DO, value);
+}
+
+/* Get data bit */
+static int liteeth_get_mdio_data(struct mdiobb_ctrl *ctrl)
+{
+	struct liteeth *priv = container_of(ctrl, struct liteeth, mdiobb);
+
+	return (inreg8(priv->mdio_base + LITEETH_MDIO_R) & MDIO_R_DI) != 0;
+}
+
+/* MDIO bus control struct */
+static struct mdiobb_ops bb_ops = {
+	.set_mdc = liteeth_set_mdc,
+	.set_mdio_dir = liteeth_set_mdio_dir,
+	.set_mdio_data = liteeth_set_mdio_data,
+	.get_mdio_data = liteeth_get_mdio_data,
+};
+
 static int liteeth_init_dev(struct eth_device *edev)
 {
 	return 0;
@@ -98,10 +154,15 @@ static int liteeth_init_dev(struct eth_device *edev)
 static int liteeth_eth_open(struct eth_device *edev)
 {
 	struct liteeth *priv = edev->priv;
+	int ret;
 
 	/* Clear pending events? */
 	outreg8(1, priv->base + LITEETH_WRITER_EV_PENDING);
 	outreg8(1, priv->base + LITEETH_READER_EV_PENDING);
+
+	ret = phy_device_connect(edev, priv->mii_bus, -1, NULL, 0, -1);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -280,6 +341,11 @@ static int liteeth_probe(struct device_d *dev)
 	edev->halt = liteeth_eth_halt;
 	edev->parent = dev;
 
+	priv->mdiobb.ops = &bb_ops;
+
+	priv->mii_bus = alloc_mdio_bitbang(&priv->mdiobb);
+	priv->mii_bus->parent = dev;
+
 	liteeth_reset_hw(priv);
 
 	err = eth_register(edev);
@@ -288,11 +354,11 @@ static int liteeth_probe(struct device_d *dev)
 		goto err;
 	}
 
-//	err = mdiobus_register(&priv->mii_bus);
-//	if (err) {
-//		dev_err(dev, "Failed to register mii_bus\n");
-//		goto err_mii;
-//	}
+	err = mdiobus_register(priv->mii_bus);
+	if (err) {
+		dev_err(dev, "Failed to register mii_bus\n");
+		goto err;
+	}
 
 	dev_info(dev, DRV_NAME " driver registered\n");
 
