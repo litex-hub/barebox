@@ -30,14 +30,14 @@
 
 	uart0: serial@f0001800 {
 		compatible = "litex,uart";
-		reg = <0xf0001800 0x18>;
+		reg = <0xf0001000 0x18>;
 		status = "disabled";
 	};
 
 	mac0: mac@f0003800 {
 		compatible = "litex,liteeth";
-		reg = <0xf0004000 0x7c /* base */
-			0xf0003800 0x0a /* mdio_base */
+		reg = <0xf0003800 0x7c /* base */
+			0xf0003000 0x0a /* mdio_base */
 			0xb0000000 0x2000>; /* buf_base */
 		tx-fifo-depth = <2>;
 		rx-fifo-depth = <2>;

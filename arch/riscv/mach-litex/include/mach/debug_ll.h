@@ -20,7 +20,7 @@
 
 #include <linux/kconfig.h>
 
-#define DEBUG_LL_UART_ADDR	0xf0001800
+#define DEBUG_LL_UART_ADDR	0xf0001000
 #define UART_RXTX	0x00
 #define UART_TXFULL	0x04
 #define UART_RXEMPTY	0x08
