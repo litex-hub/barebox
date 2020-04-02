@@ -25,9 +25,9 @@
 		reg = <0x20000000 0x00004000>;
 	};
 
-	main_ram: memory@c0000000 {
+	main_ram: memory@40000000 {
 		device_type = "memory";
-		reg = <0xc0000000 0x10000000>;
+		reg = <0x40000000 0x10000000>;
 	};
 };
 
