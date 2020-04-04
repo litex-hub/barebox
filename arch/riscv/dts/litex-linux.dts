@@ -36,3 +36,15 @@
 &mac0 {
 	status = "okay";
 };
+
+&spi0 {
+	status = "okay";
+
+	spiflash: w25q128@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "winbond,w25q128", "jedec,spi-nor";
+		spi-max-frequency = <104000000>;
+		reg = <0>;
+	};
+};

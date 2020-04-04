@@ -43,4 +43,14 @@
 		rx-fifo-depth = <2>;
 		status = "disabled";
 	};
+
+	spi0: spi@f0004800 {
+		compatible = "litex,spiflash";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg = <0xf0004800 0x100>;
+		status = "disabled";
+	};
 };
