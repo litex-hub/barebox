@@ -47,6 +47,9 @@ config CLOCKSOURCE_EFI_X86
 	bool "EFI X86 HW driver"
 	depends on EFI_BOOTUP && X86
 
+config CLOCKSOURCE_LITEX_TIMER0
+	bool "LiteX TIMER0 driver"
+
 config CLOCKSOURCE_MVEBU
 	bool
 	depends on ARCH_MVEBU
