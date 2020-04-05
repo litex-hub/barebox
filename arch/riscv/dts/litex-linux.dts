@@ -48,3 +48,7 @@
 		reg = <0>;
 	};
 };
+
+&timer0 {
+	status = "okay";
+};
