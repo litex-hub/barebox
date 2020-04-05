@@ -51,6 +51,9 @@ config CLOCKSOURCE_KVX
 	bool "KVX core timer clocksource"
 	depends on KVX
 
+config CLOCKSOURCE_LITEX_TIMER0
+	bool "LiteX TIMER0 driver"
+
 config CLOCKSOURCE_MVEBU
 	bool "MVEBU clock source" if COMPILE_TEST
 	depends on ARCH_MVEBU || COMPILE_TEST
