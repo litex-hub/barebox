@@ -62,6 +62,13 @@ static int litex_serial_tstc(struct console_device *cdev)
 	return 1;
 }
 
+static int litex_setial_setbaudrate(struct console_device *cdev, int baudrate)
+{
+	if (baudrate != CONFIG_BAUDRATE)
+		return -EINVAL;
+	return 0;
+}
+
 static int litex_serial_probe(struct device_d *dev)
 {
 	struct resource *iores;
@@ -76,7 +83,7 @@ static int litex_serial_probe(struct device_d *dev)
 	cdev->tstc = &litex_serial_tstc;
 	cdev->putc = &litex_serial_putc;
 	cdev->getc = &litex_serial_getc;
-	cdev->setbrg = NULL;
+	cdev->setbrg = &litex_setial_setbaudrate;
 
 	console_register(cdev);
 
