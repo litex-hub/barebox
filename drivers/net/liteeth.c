@@ -20,21 +20,21 @@
 
 #define LITEETH_WRITER_SLOT		0x00
 #define LITEETH_WRITER_LENGTH		0x04
-#define LITEETH_WRITER_ERRORS		0x14
-#define LITEETH_WRITER_EV_STATUS	0x24
-#define LITEETH_WRITER_EV_PENDING	0x28
-#define LITEETH_WRITER_EV_ENABLE	0x2c
-#define LITEETH_READER_START		0x30
-#define LITEETH_READER_READY		0x34
-#define LITEETH_READER_LEVEL		0x38
-#define LITEETH_READER_SLOT		0x3c
-#define LITEETH_READER_LENGTH		0x40
-#define LITEETH_READER_EV_STATUS	0x48
-#define LITEETH_READER_EV_PENDING	0x4c
-#define LITEETH_READER_EV_ENABLE	0x50
-#define LITEETH_PREAMBLE_CRC		0x54
-#define LITEETH_PREAMBLE_ERRORS		0x58
-#define LITEETH_CRC_ERRORS		0x68
+#define LITEETH_WRITER_ERRORS		0x08
+#define LITEETH_WRITER_EV_STATUS	0x0c
+#define LITEETH_WRITER_EV_PENDING	0x10
+#define LITEETH_WRITER_EV_ENABLE	0x14
+#define LITEETH_READER_START		0x18
+#define LITEETH_READER_READY		0x1c
+#define LITEETH_READER_LEVEL		0x20
+#define LITEETH_READER_SLOT		0x24
+#define LITEETH_READER_LENGTH		0x28
+#define LITEETH_READER_EV_STATUS	0x2c
+#define LITEETH_READER_EV_PENDING	0x30
+#define LITEETH_READER_EV_ENABLE	0x34
+#define LITEETH_PREAMBLE_CRC		0x38
+#define LITEETH_PREAMBLE_ERRORS		0x3c
+#define LITEETH_CRC_ERRORS		0x40
 
 #define LITEETH_PHY_CRG_RESET		0x00
 #define LITEETH_MDIO_W			0x04
@@ -70,39 +70,11 @@ struct liteeth {
 	void __iomem *rx_base;
 };
 
-/* Helper routines for accessing MMIO over a wishbone bus.
- * Each 32 bit memory location contains a single byte of data, stored
- * little endian
- */
-static inline void outreg8(u8 val, void __iomem *addr)
-{
-	iowrite32(val, addr);
-}
-
-static inline void outreg16(u16 val, void __iomem *addr)
-{
-	outreg8(val >> 8, addr);
-	outreg8(val, addr + 4);
-}
-
-static inline u8 inreg8(void __iomem *addr)
-{
-	return ioread32(addr);
-}
-
-static inline u32 inreg32(void __iomem *addr)
-{
-	return (inreg8(addr) << 24) |
-		(inreg8(addr + 0x4) << 16) |
-		(inreg8(addr + 0x8) <<  8) |
-		(inreg8(addr + 0xc) <<  0);
-}
-
 static void liteeth_mdio_w_modify(struct liteeth *priv, u8 clear, u8 set)
 {
 	void __iomem *mdio_w = priv->mdio_base + LITEETH_MDIO_W;
 
-	outreg8((inreg8(mdio_w) & ~clear) | set, mdio_w);
+	iowrite8((ioread8(mdio_w) & ~clear) | set, mdio_w);
 }
 
 static void liteeth_mdio_ctrl(struct mdiobb_ctrl *ctrl, u8 mask, int set)
@@ -135,7 +107,7 @@ static int liteeth_get_mdio_data(struct mdiobb_ctrl *ctrl)
 {
 	struct liteeth *priv = container_of(ctrl, struct liteeth, mdiobb);
 
-	return (inreg8(priv->mdio_base + LITEETH_MDIO_R) & MDIO_R_DI) != 0;
+	return (ioread8(priv->mdio_base + LITEETH_MDIO_R) & MDIO_R_DI) != 0;
 }
 
 /* MDIO bus control struct */
@@ -156,9 +128,13 @@ static int liteeth_eth_open(struct eth_device *edev)
 	struct liteeth *priv = edev->priv;
 	int ret;
 
+	/* Disable events */
+	iowrite8(0, priv->base + LITEETH_WRITER_EV_ENABLE);
+	iowrite8(0, priv->base + LITEETH_READER_EV_ENABLE);
+
 	/* Clear pending events? */
-	outreg8(1, priv->base + LITEETH_WRITER_EV_PENDING);
-	outreg8(1, priv->base + LITEETH_READER_EV_PENDING);
+	iowrite8(1, priv->base + LITEETH_WRITER_EV_PENDING);
+	iowrite8(1, priv->base + LITEETH_READER_EV_PENDING);
 
 	ret = phy_device_connect(edev, priv->mii_bus, -1, NULL, 0, -1);
 	if (ret)
@@ -177,9 +153,9 @@ static int liteeth_eth_send(struct eth_device *edev, void *packet,
 	u8 reg;
 
 	//pr_err("liteeth_eth_send(packet_length=%d)\n", packet_length);
-	reg = inreg8(priv->base + LITEETH_READER_EV_PENDING);
+	reg = ioread8(priv->base + LITEETH_READER_EV_PENDING);
 	if (reg) {
-		outreg8(reg, priv->base + LITEETH_READER_EV_PENDING);
+		iowrite8(reg, priv->base + LITEETH_READER_EV_PENDING);
 	}
 
 	/* Reject oversize packets */
@@ -190,8 +166,8 @@ static int liteeth_eth_send(struct eth_device *edev, void *packet,
 
 	txbuffer = priv->tx_base + priv->tx_slot * LITEETH_BUFFER_SIZE;
 	memcpy(txbuffer, packet, packet_length);
-	outreg8(priv->tx_slot, priv->base + LITEETH_READER_SLOT);
-	outreg16(packet_length, priv->base + LITEETH_READER_LENGTH);
+	iowrite8(priv->tx_slot, priv->base + LITEETH_READER_SLOT);
+	iowrite16(packet_length, priv->base + LITEETH_READER_LENGTH);
 
 	ret = readb_poll_timeout(priv->base + LITEETH_READER_READY,
 			val, val, 1000);
@@ -200,7 +176,7 @@ static int liteeth_eth_send(struct eth_device *edev, void *packet,
 		goto drop;
 	}
 
-	outreg8(1, priv->base + LITEETH_READER_START);
+	iowrite8(1, priv->base + LITEETH_READER_START);
 
 	priv->tx_slot = (priv->tx_slot + 1) % priv->num_tx_slots;
 
@@ -215,24 +191,26 @@ static int liteeth_eth_rx(struct eth_device *edev)
 	int len = 0;
 	u8 reg;
 
-	reg = inreg8(priv->base + LITEETH_WRITER_EV_PENDING);
+	reg = ioread8(priv->base + LITEETH_WRITER_EV_PENDING);
 	if (!reg) {
 		goto done;
 	}
 
-	len = inreg32(priv->base + LITEETH_WRITER_LENGTH);
+	len = ioread32(priv->base + LITEETH_WRITER_LENGTH);
 	if (len == 0 || len > 2048) {
 		len = 0;
+		pr_err("liteeth_eth_rx invlid len %d\n", len);
+		iowrite8(reg, priv->base + LITEETH_WRITER_EV_PENDING);
 		goto done;
 	}
 
-	rx_slot = inreg8(priv->base + LITEETH_WRITER_SLOT);
+	rx_slot = ioread8(priv->base + LITEETH_WRITER_SLOT);
 
 	memcpy(NetRxPackets[0], priv->rx_base + rx_slot * LITEETH_BUFFER_SIZE, len);
 
 	net_receive(edev, NetRxPackets[0], len);
 
-	outreg8(reg, priv->base + LITEETH_WRITER_EV_PENDING);
+	iowrite8(reg, priv->base + LITEETH_WRITER_EV_PENDING);
 
 	//pr_err("liteeth_eth_rx len=%d\n", len);
 done:
@@ -244,18 +222,18 @@ static void liteeth_eth_halt(struct eth_device *edev)
 	struct liteeth *priv = edev->priv;
 	pr_err("%s\n", __FUNCTION__);
 
-	outreg8(0, priv->base + LITEETH_WRITER_EV_ENABLE);
-	outreg8(0, priv->base + LITEETH_READER_EV_ENABLE);
+	iowrite8(0, priv->base + LITEETH_WRITER_EV_ENABLE);
+	iowrite8(0, priv->base + LITEETH_READER_EV_ENABLE);
 }
 
 static void liteeth_reset_hw(struct liteeth *priv)
 {
 	/* Reset, twice */
-	outreg8(0, priv->base + LITEETH_PHY_CRG_RESET);
+	iowrite8(0, priv->base + LITEETH_PHY_CRG_RESET);
 	udelay(10);
-	outreg8(1, priv->base + LITEETH_PHY_CRG_RESET);
+	iowrite8(1, priv->base + LITEETH_PHY_CRG_RESET);
 	udelay(10);
-	outreg8(0, priv->base + LITEETH_PHY_CRG_RESET);
+	iowrite8(0, priv->base + LITEETH_PHY_CRG_RESET);
 	udelay(10);
 }
 
