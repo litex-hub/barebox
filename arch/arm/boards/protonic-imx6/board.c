@@ -5,6 +5,7 @@
 
 #include <bbu.h>
 #include <common.h>
+#include <deep-probe.h>
 #include <environment.h>
 #include <fcntl.h>
 #include <gpio.h>
@@ -50,6 +51,8 @@ enum {
 	HW_TYPE_LANMCU = 23,
 	HW_TYPE_PLYBAS = 24,
 	HW_TYPE_VICTGO = 28,
+	HW_TYPE_JOZACP = 30,
+	HW_TYPE_JOZACPP = 31,
 };
 
 enum prt_imx6_kvg_pw_mode {
@@ -83,6 +86,7 @@ struct prt_imx6_priv {
 	const char *name;
 	struct poller_async poller;
 	unsigned int usb_delay;
+	unsigned int no_usb_check;
 };
 
 struct prti6q_rfid_contents {
@@ -137,7 +141,7 @@ static int prt_imx6_read_rfid(struct prt_imx6_priv *priv, void *buf,
 	/* 0x6000 user storage in the RFID tag */
 	ret = i2c_read_reg(&cl, 0x6000 | I2C_ADDR_16_BIT, buf, size);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read the RFID: %i\n", ret);
+		dev_err(dev, "Failed to read the RFID: %pe\n", ERR_PTR(ret));
 		return ret;
 	}
 
@@ -379,16 +383,20 @@ static int prt_imx6_env_init(struct prt_imx6_priv *priv)
 	if (ret)
 		goto exit_env_init;
 
-	if (dcfg->flags & PRT_IMX6_USB_LONG_DELAY)
-		priv->usb_delay = 4;
-	else
-		priv->usb_delay = 1;
+	if (priv->no_usb_check) {
+		set_autoboot_state(AUTOBOOT_BOOT);
+	} else {
+		if (dcfg->flags & PRT_IMX6_USB_LONG_DELAY)
+			priv->usb_delay = 4;
+		else
+			priv->usb_delay = 1;
 
-	/* the usb_delay value is used for poller_call_async() */
-	delay = basprintf("%d", priv->usb_delay);
-	ret = setenv("global.autoboot_timeout", delay);
-	if (ret)
-		goto exit_env_init;
+		/* the usb_delay value is used for poller_call_async() */
+		delay = basprintf("%d", priv->usb_delay);
+		ret = setenv("global.autoboot_timeout", delay);
+		if (ret)
+			goto exit_env_init;
+	}
 
 	if (dcfg->flags & PRT_IMX6_BOOTCHOOSER)
 		bootsrc = "bootchooser";
@@ -403,7 +411,7 @@ static int prt_imx6_env_init(struct prt_imx6_priv *priv)
 	return 0;
 
 exit_env_init:
-	dev_err(dev, "Failed to set env: %i\n", ret);
+	dev_err(dev, "Failed to set env: %pe\n", ERR_PTR(ret));
 
 	return ret;
 }
@@ -436,7 +444,7 @@ static int prt_imx6_bbu(struct prt_imx6_priv *priv)
 
 	return 0;
 exit_bbu:
-	dev_err(priv->dev, "Failed to register bbu: %i\n", ret);
+	dev_err(priv->dev, "Failed to register bbu: %pe\n", ERR_PTR(ret));
 	return ret;
 }
 
@@ -457,14 +465,16 @@ static int prt_imx6_devices_init(void)
 
 	prt_imx6_env_init(priv);
 
-	ret = poller_async_register(&priv->poller, "usb-boot");
-	if (ret) {
-		dev_err(priv->dev, "can't setup poller\n");
-		return ret;
-	}
+	if (!priv->no_usb_check) {
+		ret = poller_async_register(&priv->poller, "usb-boot");
+		if (ret) {
+			dev_err(priv->dev, "can't setup poller\n");
+			return ret;
+		}
 
-	poller_call_async(&priv->poller, priv->usb_delay * SECOND,
-			  &prt_imx6_check_usb_boot, priv);
+		poller_call_async(&priv->poller, priv->usb_delay * SECOND,
+				  &prt_imx6_check_usb_boot, priv);
+	}
 
 	return 0;
 }
@@ -509,7 +519,7 @@ static int prt_imx6_yaco_set_kvg_power_mode(struct prt_imx6_priv *priv,
 	return 0;
 
 exit_yaco_set_kvg_power_mode:
-	dev_err(dev, "Failed to set YaCO pw mode: %i", ret);
+	dev_err(dev, "Failed to set YaCO pw mode: %pe", ERR_PTR(ret));
 
 	return ret;
 }
@@ -617,6 +627,22 @@ static int prt_imx6_init_kvg_yaco(struct prt_imx6_priv *priv)
 	return prt_imx6_init_kvg_power(priv, PW_MODE_KVG_WITH_YACO);
 }
 
+#define GPIO_KEY_F6     (0xe0 + 5)
+#define GPIO_KEY_CYCLE  (0xe0 + 2)
+
+static int prt_imx6_init_prtvt7(struct prt_imx6_priv *priv)
+{
+	/* This function relies heavely on the gpio-pca9539 driver */
+
+	gpio_direction_input(GPIO_KEY_F6);
+	gpio_direction_input(GPIO_KEY_CYCLE);
+
+	if (gpio_get_value(GPIO_KEY_CYCLE) && gpio_get_value(GPIO_KEY_F6))
+		priv->no_usb_check = 1;
+
+	return 0;
+}
+
 static int prt_imx6_rfid_fixup(struct prt_imx6_priv *priv,
 			       struct device_node *root)
 {
@@ -678,7 +704,7 @@ free_eeprom:
 free_alias:
 	kfree(alias);
 exit_error:
-	dev_err(priv->dev, "Failed to apply fixup: %i\n", ret);
+	dev_err(priv->dev, "Failed to apply fixup: %pe\n", ERR_PTR(ret));
 	return ret;
 }
 
@@ -699,7 +725,7 @@ static int prt_imx6_of_fixup(struct device_node *root, void *data)
 
 	return 0;
 exit_of_fixups:
-	dev_err(priv->dev, "Failed to apply OF fixups: %i\n", ret);
+	dev_err(priv->dev, "Failed to apply OF fixups: %pe\n", ERR_PTR(ret));
 	return ret;
 }
 
@@ -707,7 +733,16 @@ static int prt_imx6_get_id(struct prt_imx6_priv *priv)
 {
 	struct gpio gpios_type[] = GPIO_HW_TYPE_ID;
 	struct gpio gpios_rev[] = GPIO_HW_REV_ID;
+	struct device_node *gpio_np = NULL;
 	int ret;
+
+	gpio_np = of_find_node_by_name(NULL, "gpio@20a0000");
+	if (!gpio_np)
+		return -ENODEV;
+
+	ret = of_device_ensure_probed(gpio_np);
+	if (ret)
+		return ret;
 
 	ret = gpio_array_to_id(gpios_type, ARRAY_SIZE(gpios_type), &priv->hw_id);
 	if (ret)
@@ -719,7 +754,7 @@ static int prt_imx6_get_id(struct prt_imx6_priv *priv)
 
 	return 0;
 exit_get_id:
-	dev_err(priv->dev, "Failed to read gpio ID: %i\n", ret);
+	dev_err(priv->dev, "Failed to read gpio ID: %pe\n", ERR_PTR(ret));
 	return ret;
 }
 
@@ -1021,7 +1056,9 @@ static const struct prt_machine_data prt_imx6_cfg_prtvt7[] = {
 		.i2c_addr = 0x51,
 		.i2c_adapter = 0,
 		.emmc_usdhc = 2,
-		.flags = PRT_IMX6_BOOTSRC_EMMC | PRT_IMX6_BOOTCHOOSER,
+		.init = prt_imx6_init_prtvt7,
+		.flags = PRT_IMX6_BOOTSRC_EMMC | PRT_IMX6_BOOTCHOOSER |
+			PRT_IMX6_USB_LONG_DELAY,
 	}, {
 		.hw_id = UINT_MAX
 	},
@@ -1053,6 +1090,26 @@ static const struct prt_machine_data prt_imx6_cfg_prtwd3[] = {
 	},
 };
 
+static const struct prt_machine_data prt_imx6_cfg_jozacp[] = {
+	{
+		.hw_id = HW_TYPE_JOZACP,
+		.hw_rev = 1,
+		.i2c_addr = 0x51,
+		.i2c_adapter = 0,
+		.emmc_usdhc = 0,
+		.flags = PRT_IMX6_BOOTSRC_EMMC | PRT_IMX6_BOOTCHOOSER,
+	}, {
+		.hw_id = HW_TYPE_JOZACPP,
+		.hw_rev = 1,
+		.i2c_addr = 0x51,
+		.i2c_adapter = 0,
+		.emmc_usdhc = 0,
+		.flags = PRT_IMX6_BOOTSRC_EMMC | PRT_IMX6_BOOTCHOOSER,
+	}, {
+		.hw_id = UINT_MAX
+	},
+};
+
 static const struct of_device_id prt_imx6_of_match[] = {
 	{ .compatible = "alt,alti6p", .data = &prt_imx6_cfg_alti6p },
 	{ .compatible = "kvg,victgo", .data = &prt_imx6_cfg_victgo },
@@ -1069,8 +1126,10 @@ static const struct of_device_id prt_imx6_of_match[] = {
 	{ .compatible = "prt,prtvt7", .data = &prt_imx6_cfg_prtvt7 },
 	{ .compatible = "prt,prtwd2", .data = &prt_imx6_cfg_prtwd2 },
 	{ .compatible = "prt,prtwd3", .data = &prt_imx6_cfg_prtwd3 },
+	{ .compatible = "joz,jozacp", .data = &prt_imx6_cfg_jozacp },
 	{ /* sentinel */ },
 };
+BAREBOX_DEEP_PROBE_ENABLE(prt_imx6_of_match);
 
 static struct driver_d prt_imx6_board_driver = {
 	.name = "board-protonic-imx6",
